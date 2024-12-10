@@ -324,10 +324,10 @@ func (m *ManagerCtx) clearAllSegments() {
 			continue
 		}
 
-		segmentPath := path.Join(m.config.TranscodeDir, segmentName)
-		if err := os.Remove(segmentPath); err != nil {
-			m.logger.Err(err).Str("path", segmentPath).Msg("error while removing file")
-		}
+		// segmentPath := path.Join(m.config.TranscodeDir, segmentName)
+		// if err := os.Remove(segmentPath); err != nil {
+		// 	m.logger.Err(err).Str("path", segmentPath).Msg("error while removing file")
+		// }
 	}
 }
 

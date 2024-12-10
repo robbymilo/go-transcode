@@ -1,6 +1,8 @@
 package api
 
 import (
+	"bytes"
+	"crypto/sha1"
 	_ "embed"
 	"fmt"
 	"net/http"
@@ -112,6 +114,31 @@ func (a *ApiManagerCtx) HlsVod(r chi.Router) {
 			return
 		}
 
+		// create own transcoding directory
+		h := sha1.New()
+		h.Write([]byte(vodMediaPath))
+		hash := h.Sum(nil)
+
+		if a.config.Vod.TranscodeDir == "" {
+			a.config.Vod.TranscodeDir = os.TempDir()
+		}
+		transcodeDir := filepath.Join(a.config.Vod.TranscodeDir, fmt.Sprintf("vod-%s-%x", profileID, hash))
+
+		p := filepath.Join(transcodeDir, hlsResource)
+		if info, err := os.Stat(p); err != nil {
+			fmt.Println("does not exist", p, err)
+		} else {
+			fmt.Println("file exists", p)
+			file, err := os.ReadFile(p)
+			if err != nil {
+				fmt.Println("error reading saved file:", err)
+			}
+
+			fmt.Println("serving file")
+			http.ServeContent(w, r, p, info.ModTime(), bytes.NewReader(file))
+			return
+		}
+
 		ID := fmt.Sprintf("%s/%s", profileID, vodMediaPath)
 		manager, ok := hlsVodManagers[ID]
 
@@ -129,8 +156,7 @@ func (a *ApiManagerCtx) HlsVod(r chi.Router) {
 				return
 			}
 
-			// create own transcoding directory
-			transcodeDir, err := os.MkdirTemp(a.config.Vod.TranscodeDir, fmt.Sprintf("vod-%s-*", profileID))
+			err := os.MkdirAll(transcodeDir, 0755)
 			if err != nil {
 				logger.Warn().Err(err).Msg("could not create temp dir")
 				http.Error(w, "500 could not create temp dir", http.StatusInternalServerError)
@@ -174,6 +200,7 @@ func (a *ApiManagerCtx) HlsVod(r chi.Router) {
 			manager.ServePlaylist(w, r)
 		} else {
 			manager.ServeMedia(w, r)
+
 		}
 	})
 }
